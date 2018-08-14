@@ -92,8 +92,8 @@ func PunchIn(userID string) error {
 	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, now.Format("2006-01-02"))
 	sugar.Errorf("%s", endpoint)
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + now.Format(time.RFC3339) + `","clock_out_at":"` + now.Format("2006-01-02") + `T18:00:00.000+09:00"}`
-	sugar.Errorf("%s", endpoint)
+	jsonStr := `{"break_records":[],"clock_in_at":"` + now.Format(time.RFC3339) + `","clock_out_at":"` + now.Add(9 * time.Hour).Format(time.RFC3339) + `"}`
+	sugar.Errorf("%s", jsonStr)
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		sugar.Errorf("3: %s", err)
