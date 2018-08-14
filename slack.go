@@ -19,7 +19,7 @@ const (
 	actionCancel = "cancel"
 
 	callbackID  = "punch"
-	helpMessage = "```\nUsage:\n\tIntegration:\n\t\tauth\n\t\tadd [emp_id]\n\n\tDeintegration\n\t\tremove\n\n\tCheck In:\n\t\tin```"
+	helpMessage = "```\nUsage:\n\tIntegration:\n\t\tauth\n\t\tadd [emp_id]\n\n\tDeintegration\n\t\tremove\n\n\tCheck In:\n\t\tin\n\t\tin now\n\t\tin 0930\n\n\tCheck Out:\n\t\tout\n\t\tout now\n\t\tout 1810\n\n\tOff:\n\t\tleave\n\t\toff```"
 )
 
 type SlackListener struct {
