@@ -170,7 +170,8 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			if err != nil {
 				return s.respond(ev.Channel, "Invalid parameters.")
 			}
-			clock = t
+			now := time.Now()
+			clock = time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.UTC)
 		}
 
 		if split[0] == "in" {
