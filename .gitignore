@@ -78,5 +78,5 @@ fabric.properties
 .idea/httpRequests
 
 # golang
-!.gitkeep
 bin/*
+!.gitkeep
