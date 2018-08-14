@@ -193,7 +193,7 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			return s.respond(ev.Channel, responseText)
 		}
 	}
-	if isDirectMessageChannel && ev.Msg.Text == "leave" {
+	if isDirectMessageChannel && (ev.Msg.Text == "leave" || ev.Msg.Text == "off") {
 		responseText := ":ok: You are off today. Enjoy :tada:"
 		err := PunchLeave(ev.Msg.User)
 		if err != nil {
