@@ -179,17 +179,24 @@ func checkInOptions() slack.PostMessageParameters {
 				Name: actionIn,
 				Text: "Punch in",
 				Type: "button",
+				Style: "primary",
 			},
 			{
 				Name: actionOut,
 				Text: "Punch out",
 				Type: "button",
+				Style: "primary",
 			},
 			{
 				Name:  actionLeave,
 				Text:  "Leave",
 				Type:  "button",
 				Style: "danger",
+			},
+			{
+				Name:  actionCancel,
+				Text:  "Cancel",
+				Type:  "button",
 			},
 		},
 	}
@@ -203,6 +210,7 @@ func checkInOptions() slack.PostMessageParameters {
 
 func (s *SlackListener) sendReminderMessage() error {
 	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -232,7 +240,4 @@ func (s *SlackListener) sendReminderMessage() error {
 			}
 		}
 	}
-	ticker.Stop()
-
-	return nil
 }
