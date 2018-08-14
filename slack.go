@@ -149,12 +149,58 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 
 		return s.respond(ev.Channel, ":ok: Saved the admin access token successfully.")
 	}
-	if isDirectMessageChannel && (ev.Msg.Text == "punch" || ev.Msg.Text == "in" || ev.Msg.Text == "out" || ev.Msg.Text == "leave") {
+	if isDirectMessageChannel && (ev.Msg.Text == "in" || ev.Msg.Text == "out") {
 		if _, _, err := s.client.PostMessage(ev.Channel, "", checkInOptions()); err != nil {
 			return fmt.Errorf("failed to post message: %s", err)
 		}
 		return nil
 	}
+	if isDirectMessageChannel && (strings.HasPrefix(ev.Msg.Text, "in") || strings.HasPrefix(ev.Msg.Text, "out")) {
+		split := strings.Fields(ev.Msg.Text)
+		if len(split) != 2 {
+			return s.respond(ev.Channel, "Invalid parameters.")
+		}
+
+		var clock time.Time
+		timeParam := split[1]
+		if timeParam == "now" {
+			clock = time.Now()
+		} else {
+			t, err := time.Parse("1504", timeParam)
+			if err != nil {
+				return s.respond(ev.Channel, "Invalid parameters.")
+			}
+			clock = t
+		}
+
+		if split[0] == "in" {
+			responseText := ":ok: You have punched in for today."
+			err := PunchInAt(ev.Msg.User, clock)
+			if err != nil {
+				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
+				sugar.Errorf("error occurred: %s", err)
+			}
+			return s.respond(ev.Channel, responseText)
+		} else {
+			responseText := ":ok: You have punched out for today."
+			err := PunchOutAt(ev.Msg.User, clock)
+			if err != nil {
+				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
+				sugar.Errorf("error occurred: %s", err)
+			}
+			return s.respond(ev.Channel, responseText)
+		}
+	}
+	if isDirectMessageChannel && ev.Msg.Text == "leave" {
+		responseText := ":ok: You are off today. Enjoy :tada:"
+		err := PunchLeave(ev.Msg.User)
+		if err != nil {
+			responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
+		}
+		return s.respond(ev.Channel, responseText)
+	}
+
 	if ev.Msg.Text == "ping" {
 		return s.respond(ev.Channel, "pong")
 	}

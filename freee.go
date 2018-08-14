@@ -113,6 +113,45 @@ func PunchIn(userID string) error {
 	return nil
 }
 
+func PunchInAt(userID string, inTime time.Time) error {
+	user, err := findUser(userID)
+	if err != nil {
+		return fmt.Errorf("cannot find the user '%s': %s", userID, err)
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return err
+	}
+
+	location := time.FixedZone("Asia/Tokyo", 9*60*60)
+	clockIn := inTime.In(location)
+	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, clockIn.Format("2006-01-02"))
+
+	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9 * time.Hour).Format(time.RFC3339) + `"}`
+	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body '%s': %s", userID, err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
+	}
+
+	return nil
+}
+
 func PunchOut(userID string) error {
 	user, err := findUser(userID)
 	if err != nil {
@@ -154,6 +193,65 @@ func PunchOut(userID string) error {
 	}
 
 	jsonStr := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + now.Format(time.RFC3339) + `"}`
+	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err = client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to request: %d", response.StatusCode)
+	}
+
+	return nil
+}
+
+func PunchOutAt(userID string, outTime time.Time) error {
+	user, err := findUser(userID)
+	if err != nil {
+		return err
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return err
+	}
+
+	location := time.FixedZone("Asia/Tokyo", 9*60*60)
+	clockOut := outTime.In(location)
+	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, clockOut.Format("2006-01-02"))
+
+	response, err := client.Get(endpoint)
+	if err != nil {
+		return err
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	var resObj map[string]interface{}
+	if err := json.Unmarshal(data, &resObj); err != nil {
+		return err
+	}
+
+	clockInAt := resObj["clock_in_at"]
+	var inTime string
+	if clockInAt == nil {
+		inTime = clockOut.Add(-1 * time.Minute).Format(time.RFC3339)
+	} else {
+		inTime = clockInAt.(string)
+		inDate, _ := time.Parse(time.RFC3339, inTime)
+		if inDate.Unix() > clockOut.Unix() {
+			inTime = clockOut.Add(-9 * time.Hour).Format(time.RFC3339)
+		}
+	}
+
+	jsonStr := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `"}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return err
