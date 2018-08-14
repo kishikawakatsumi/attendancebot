@@ -69,7 +69,7 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responseMessage(w, message.OriginalMessage, title, "")
 		return
 	case actionLeave:
-		title := ":ok: You are off today."
+		title := ":ok: You are off today. Enjoy :tada:"
 		err := PunchLeave(message.User.ID)
 		if err != nil {
 			title = fmt.Sprintf(":warning: Error occurred: %s", err)
