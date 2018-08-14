@@ -54,8 +54,8 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		title := ":ok: You have punched in for today."
 		err := PunchIn(message.User.ID)
 		if err != nil {
-			title = fmt.Sprintf(":warning: Error occurred. %s", err)
-			sugar.Errorf("Error occurred. %s", err)
+			title = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
 		}
 		responseMessage(w, message.OriginalMessage, title, "")
 		return
@@ -63,8 +63,8 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		title := ":ok: You have punched out for today."
 		err := PunchOut(message.User.ID)
 		if err != nil {
-			title = fmt.Sprintf(":warning: Error occurred. %s", err)
-			sugar.Errorf("Error occurred. %s", err)
+			title = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
 		}
 		responseMessage(w, message.OriginalMessage, title, "")
 		return
@@ -72,8 +72,8 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		title := ":ok: You are off today."
 		err := PunchLeave(message.User.ID)
 		if err != nil {
-			title = fmt.Sprintf(":warning: Error occurred. %s", err)
-			sugar.Errorf("Error occurred. %s", err)
+			title = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
 		}
 		responseMessage(w, message.OriginalMessage, title, "")
 		return
