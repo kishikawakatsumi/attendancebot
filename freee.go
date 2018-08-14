@@ -105,7 +105,6 @@ func PunchIn(userID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response body '%s': %s", userID, err)
 	}
-
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
@@ -142,9 +141,8 @@ func PunchInAt(userID string, inTime time.Time) error {
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body '%s': %s", userID, err)
+		return fmt.Errorf("failed to read response body: %s", err)
 	}
-
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
@@ -204,8 +202,12 @@ func PunchOut(userID string) error {
 		return err
 	}
 
+	data, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %s", err)
+	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request: %d", response.StatusCode)
+		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	return nil
@@ -263,8 +265,12 @@ func PunchOutAt(userID string, outTime time.Time) error {
 		return err
 	}
 
+	data, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request: %d", response.StatusCode)
+		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	return nil
@@ -297,8 +303,12 @@ func PunchLeave(userID string) error {
 		return err
 	}
 
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request: %d", response.StatusCode)
+		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	return nil
