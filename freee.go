@@ -77,31 +77,44 @@ func httpClient(user *User) (*http.Client, error) {
 func PunchIn(userID string) error {
 	user, err := findUser(userID)
 	if err != nil {
+		sugar.Errorf("1: %s", err)
 		return err
 	}
 
 	client, err := httpClient(user)
 	if err != nil {
+		sugar.Errorf("2: %s", err)
 		return err
 	}
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	now := time.Now().In(location)
 	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, now.Format("2006-01-02"))
+	sugar.Errorf("%s", endpoint)
 
 	jsonStr := `{"break_records":[],"clock_in_at":"` + now.Format(time.RFC3339) + `","clock_out_at":"` + now.Format("2006-01-02") + `T18:00:00.000+09:00"}`
+	sugar.Errorf("%s", endpoint)
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
+		sugar.Errorf("3: %s", err)
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := client.Do(request)
 	if err != nil {
+		sugar.Errorf("4: %s", err)
 		return err
 	}
 
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	sugar.Errorf("5: %s", string(data))
+
 	if response.StatusCode != http.StatusOK {
+		sugar.Errorf("6: %s", response.StatusCode)
 		return fmt.Errorf("failed to request: %d", response.StatusCode)
 	}
 
