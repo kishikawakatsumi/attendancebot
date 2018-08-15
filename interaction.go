@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/nlopes/slack"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"fmt"
 )
 
 type interactionHandler struct {

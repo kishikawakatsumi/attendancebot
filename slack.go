@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"encoding/json"
 	"github.com/nlopes/slack"
 	"io/ioutil"
 	"os"
@@ -89,12 +88,7 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			}
 		}
 
-		text, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-
-		err = ioutil.WriteFile(fmt.Sprintf("users/%s", ev.Msg.User), text, 0644)
+		err := user.Save()
 		if err != nil {
 			return err
 		}
@@ -131,18 +125,13 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		}
 
 		user := User{
-			SlackUserID:    ev.Msg.User,
+			SlackUserID:    "admin",
 			SlackChannelID: ev.Channel,
-			EmployeeID:     "admin",
+			EmployeeID:     "",
 			Token:          *token,
 		}
 
-		text, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-
-		err = ioutil.WriteFile(fmt.Sprintf("users/%s", "admin"), text, 0644)
+		err = user.Save()
 		if err != nil {
 			return err
 		}
@@ -224,15 +213,15 @@ func checkInOptions() slack.PostMessageParameters {
 		CallbackID: callbackID,
 		Actions: []slack.AttachmentAction{
 			{
-				Name: actionIn,
-				Text: "Punch in",
-				Type: "button",
+				Name:  actionIn,
+				Text:  "Punch in",
+				Type:  "button",
 				Style: "primary",
 			},
 			{
-				Name: actionOut,
-				Text: "Punch out",
-				Type: "button",
+				Name:  actionOut,
+				Text:  "Punch out",
+				Type:  "button",
 				Style: "primary",
 			},
 			{
@@ -242,9 +231,9 @@ func checkInOptions() slack.PostMessageParameters {
 				Style: "danger",
 			},
 			{
-				Name:  actionCancel,
-				Text:  "Cancel",
-				Type:  "button",
+				Name: actionCancel,
+				Text: "Cancel",
+				Type: "button",
 			},
 		},
 	}

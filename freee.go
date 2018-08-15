@@ -11,11 +11,27 @@ import (
 	"time"
 )
 
+const apiBase = "https://api.freee.co.jp/hr"
+
 type User struct {
 	SlackUserID    string       `json:"slack_user_id"`
 	SlackChannelID string       `json:"slack_channel_id"`
 	EmployeeID     string       `json:"emp_id"`
 	Token          oauth2.Token `json:"token"`
+}
+
+func (u *User) Save() error {
+	text, err := json.Marshal(*u)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(fmt.Sprintf("users/%s", u.SlackUserID), text, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func AuthConfig() oauth2.Config {
@@ -45,6 +61,15 @@ func Token(code string) (*oauth2.Token, error) {
 	return token, nil
 }
 
+func RefreshToken(config oauth2.Config, token oauth2.Token) (*oauth2.Token, error) {
+	tokenSource := config.TokenSource(context.Background(), &token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return nil, err
+	}
+	return newToken, nil
+}
+
 func findUser(userID string) (*User, error) {
 	data, err := ioutil.ReadFile(fmt.Sprintf("users/%s", userID))
 	if err != nil {
@@ -63,12 +88,31 @@ func httpClient(user *User) (*http.Client, error) {
 	config := AuthConfig()
 	var client *http.Client
 	if user.Token.AccessToken != "" {
+		token, err := RefreshToken(config, user.Token)
+		if err != nil {
+			return nil, err
+		}
+		if token.AccessToken != user.Token.AccessToken {
+			user.Token = *token
+			user.Save()
+		}
+
 		client = config.Client(context.Background(), &user.Token)
 	} else {
 		admin, err := findUser("admin")
 		if err != nil {
 			return nil, err
 		}
+
+		token, err := RefreshToken(config, admin.Token)
+		if err != nil {
+			return nil, err
+		}
+		if token.AccessToken != admin.Token.AccessToken {
+			admin.Token = *token
+			admin.Save()
+		}
+
 		client = config.Client(context.Background(), &admin.Token)
 	}
 	return client, nil
@@ -87,9 +131,9 @@ func PunchIn(userID string) error {
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	now := time.Now().In(location)
-	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, now.Format("2006-01-02"))
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + now.Format(time.RFC3339) + `","clock_out_at":"` + now.Add(9 * time.Hour).Format(time.RFC3339) + `"}`
+	jsonStr := `{"break_records":[],"clock_in_at":"` + now.Format(time.RFC3339) + `","clock_out_at":"` + now.Add(9*time.Hour).Format(time.RFC3339) + `"}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return err
@@ -125,9 +169,9 @@ func PunchInAt(userID string, inTime time.Time) error {
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	clockIn := inTime.In(location)
-	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, clockIn.Format("2006-01-02"))
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockIn.Format("2006-01-02"))
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9 * time.Hour).Format(time.RFC3339) + `"}`
+	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `"}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return err
@@ -163,7 +207,7 @@ func PunchOut(userID string) error {
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	now := time.Now().In(location)
-	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, now.Format("2006-01-02"))
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
 	response, err := client.Get(endpoint)
 	if err != nil {
@@ -226,7 +270,7 @@ func PunchOutAt(userID string, outTime time.Time) error {
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	clockOut := outTime.In(location)
-	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, clockOut.Format("2006-01-02"))
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockOut.Format("2006-01-02"))
 
 	response, err := client.Get(endpoint)
 	if err != nil {
@@ -289,7 +333,7 @@ func PunchLeave(userID string) error {
 
 	location := time.FixedZone("Asia/Tokyo", 9*60*60)
 	now := time.Now().In(location)
-	endpoint := fmt.Sprintf("https://api.freee.co.jp/hr/api/v1/employees/%s/work_records/%s", user.EmployeeID, now.Format("2006-01-02"))
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
 	jsonStr := `{"is_absence":true}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
