@@ -208,13 +208,12 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 	}
 	if ev.Msg.Text == "me" {
 		user, err := findUser(ev.Msg.User)
-		var u User
-		u = *user
-		s.respond(ev.Channel, fmt.Sprintf("User: %+v", u))
+		s.respond(ev.Channel, fmt.Sprintf("User: %+v", *user))
 
 		admin, err := findUser("admin")
 		s.respond(ev.Channel, fmt.Sprintf("Admin: %+v", *admin))
 
+		s.respond(ev.Channel, fmt.Sprintf("Config: %+v", AuthConfig()))
 
 		text, err := Me(ev.Msg.User)
 		if err != nil {
