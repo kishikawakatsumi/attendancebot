@@ -19,7 +19,7 @@ const (
 	actionCancel = "cancel"
 
 	callbackID  = "punch"
-	helpMessage = "```\nUsage:\n\tIntegration:\n\t\tauth\n\t\tadd [emp_id]\n\n\tDeintegration\n\t\tremove\n\n\tCheck In:\n\t\tin\n\t\tin now\n\t\tin 0930\n\n\tCheck Out:\n\t\tout\n\t\tout now\n\t\tout 1810\n\n\tOff:\n\t\tleave\n\t\toff```"
+	helpMessage = "```\nUsage:\n\tIntegration:\n\t\tauth\n\t\tadd [emp_id]\n\n\tDeintegration\n\t\tremove\n\n\tCheck In:\n\t\tin\n\t\tin now\n\t\tin 0930\n\n\tCheck Out:\n\t\tout\n\t\tout now\n\t\tout 1810\n\n\tOff:\n\t\tleave\n\t\toff\n\n\tDebug:\n\t\tme```"
 )
 
 type SlackListener struct {
@@ -215,7 +215,12 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return s.respond(ev.Channel, *text)
 	}
 	if ev.Msg.Text == "help" {
-		return s.respond(ev.Channel, helpMessage)
+		text, err := Me(ev.Msg.User)
+		if err != nil {
+			*text = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
+		}
+		return s.respond(ev.Channel, *text)
 	}
 
 	return nil
