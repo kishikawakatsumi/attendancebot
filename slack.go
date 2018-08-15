@@ -207,12 +207,19 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return s.respond(ev.Channel, "pong")
 	}
 	if ev.Msg.Text == "me" {
+		user, err := findUser(ev.Msg.User)
+		s.respond(ev.Channel, fmt.Sprintf("User: %+v", &user))
+
+		admin, err := findUser("admin")
+		s.respond(ev.Channel, fmt.Sprintf("Admin: %+v", &admin))
+
+
 		text, err := Me(ev.Msg.User)
 		if err != nil {
-			text = fmt.Sprintf(":warning: Error occurred: %s", err)
+			*text = fmt.Sprintf(":warning: Error occurred: %s", err)
 			sugar.Errorf("error occurred: %s", err)
 		}
-		return s.respond(ev.Channel, text)
+		return s.respond(ev.Channel, fmt.Sprintf("%s", *text))
 	}
 	if ev.Msg.Text == "help" {
 		return s.respond(ev.Channel, helpMessage)

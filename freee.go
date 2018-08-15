@@ -314,25 +314,26 @@ func PunchLeave(userID string) error {
 	return nil
 }
 
-func Me(userID string) (string, error) {
+func Me(userID string) (*string, error) {
 	user, err := findUser(userID)
 	if err != nil {
-		return "1", fmt.Errorf("cannot find the user '%s': %s", userID, err)
+		return nil, fmt.Errorf("cannot find the user '%s': %s", userID, err)
 	}
 
 	client, err := httpClient(user)
 	if err != nil {
-		return "2", err
+		return nil, err
 	}
 
 	response, err := client.Get("https://api.freee.co.jp/hr/api/v1/users/me")
 	if err != nil {
-		return "3", err
+		return nil, err
 	}
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return "4", err
+		return nil, err
 	}
 
-	return fmt.Sprintf("5: %s", string(data)), nil
+	s := string(data)
+	return &s, nil
 }
