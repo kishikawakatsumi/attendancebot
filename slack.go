@@ -206,6 +206,14 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 	if ev.Msg.Text == "ping" {
 		return s.respond(ev.Channel, "pong")
 	}
+	if ev.Msg.Text == "me" {
+		text, err := Me(ev.Msg.User)
+		if err != nil {
+			*text = fmt.Sprintf(":warning: Error occurred: %s", err)
+			sugar.Errorf("error occurred: %s", err)
+		}
+		return s.respond(ev.Channel, *text)
+	}
 	if ev.Msg.Text == "help" {
 		return s.respond(ev.Channel, helpMessage)
 	}
