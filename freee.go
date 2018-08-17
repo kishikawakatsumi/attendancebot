@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"golang.org/x/oauth2"
 	"io/ioutil"
 	"net/http"
 	"time"
-	"github.com/dustin/go-humanize"
 )
 
 const apiBase = "https://api.freee.co.jp/hr"
@@ -105,24 +105,10 @@ func PunchInAt(userID string, inTime time.Time) error {
 	clockIn := inTime.In(location)
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockIn.Format("2006-01-02"))
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `","is_absence":false}`
-	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+	parameters := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `","is_absence":false}`
+	_, err = DoPut(client, endpoint, parameters)
 	if err != nil {
 		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %s", err)
-	}
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	user.LastUsed = time.Now()
@@ -152,16 +138,8 @@ func PunchOutAt(userID string, outTime time.Time) error {
 	clockOut := outTime.In(location)
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockOut.Format("2006-01-02"))
 
-	response, err := client.Get(endpoint)
+	record, err := DoGet(client, endpoint)
 	if err != nil {
-		return err
-	}
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	var record map[string]interface{}
-	if err := json.Unmarshal(data, &record); err != nil {
 		return err
 	}
 
@@ -177,24 +155,10 @@ func PunchOutAt(userID string, outTime time.Time) error {
 		}
 	}
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `","is_absence":false}`
-	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+	parameters := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `","is_absence":false}`
+	_, err = DoPut(client, endpoint, parameters)
 	if err != nil {
 		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err = client.Do(request)
-	if err != nil {
-		return err
-	}
-
-	data, err = ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	user.LastUsed = time.Now()
@@ -266,16 +230,8 @@ func Report(userID string) ([]map[string]interface{}, error) {
 	}
 	for d := start; d.Month() == start.Month(); d = d.AddDate(0, 0, 1) {
 		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, d.Format("2006-01-02"))
-		response, err := client.Get(endpoint)
+		record, err := DoGet(client, endpoint)
 		if err != nil {
-			return nil, err
-		}
-		data, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
-		var record map[string]interface{}
-		if err := json.Unmarshal(data, &record); err != nil {
 			return nil, err
 		}
 		if record["day_pattern"] != "normal_day" {
@@ -304,7 +260,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 		if record["date"] != nil {
 			date = record["date"].(string)
 		} else {
-			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i+1))
 		}
 		in := ""
 		if record["in"] != nil {
@@ -322,7 +278,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 		var dateTime time.Time
 		dateTime, err = time.Parse("2006-01-02", date)
 		if err != nil {
-			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i+1))
 		}
 
 		var inTime time.Time
@@ -336,7 +292,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 				if err != nil {
 					inTime, err = time.Parse("1504", in)
 					if err != nil {
-						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i+1))
 					}
 				}
 				inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, tokyoTime)
@@ -403,18 +359,50 @@ func IsNormalDay(userID string) bool {
 	now := time.Now().In(location)
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
-	response, err := client.Get(endpoint)
+	record, err := DoGet(client, endpoint)
 	if err != nil {
-		return false
-	}
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return false
-	}
-	var record map[string]interface{}
-	if err := json.Unmarshal(data, &record); err != nil {
 		return false
 	}
 
 	return record["day_pattern"] == "normal_day"
+}
+
+func DoGet(client *http.Client, endpoint string) (map[string]interface{}, error) {
+	response, err := client.Get(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	var record map[string]interface{}
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, err
+	}
+
+	return record, nil
+}
+
+func DoPut(client *http.Client, endpoint string, parameters string) (*http.Response, error) {
+	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(parameters)))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
+	}
+
+	return response, nil
 }
