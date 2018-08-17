@@ -313,13 +313,18 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 					records = incompleteRecords
 				}
 
-				byte, err := json.MarshalIndent(records, "", "  ")
-				if err != nil {
-					s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
-					sugar.Errorf("%s", err)
-					return
+				results := []string{}
+				for _, record := range records {
+					byte, err := json.Marshal(record)
+					if err != nil {
+						s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
+						sugar.Errorf("%s", err)
+						return
+					}
+					results = append(results, string(byte))
 				}
-				s.respond(ev.Channel, string(byte))
+
+				s.respond(ev.Channel, fmt.Sprintf("```\n[\n  %s\n]```", strings.Join(results, ",\n  ")))
 			} else {
 				results := []string{}
 				results = append(results, fmt.Sprintf("Date        In     Out    Off"))
