@@ -387,3 +387,34 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 
 	return nil
 }
+
+func IsNormalDay(userID string) bool {
+	user, err := FindUser(userID)
+	if err != nil {
+		return false
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return false
+	}
+
+	location := time.FixedZone("Asia/Tokyo", 9*60*60)
+	now := time.Now().In(location)
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
+
+	response, err := client.Get(endpoint)
+	if err != nil {
+		return false
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return false
+	}
+	var record map[string]interface{}
+	if err := json.Unmarshal(data, &record); err != nil {
+		return false
+	}
+
+	return record["day_pattern"] == "normal_day"
+}
