@@ -46,6 +46,11 @@ const (
 	Reminder:
 		reminder set 0900 1700
 		reminder off
+
+	Report:
+		report
+		report -json
+		report -json -incomplete
 ` + "```"
 )
 
@@ -167,14 +172,14 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return s.respond(ev.Channel, ":ok: Saved the admin access token successfully.")
 	}
 	if isDirectMessageChannel && ev.Msg.Text == "admin stat" {
-		admin, err := FindUser("admin")
-		if err != nil {
-			return err
-		}
+		//admin, err := FindUser("admin")
+		//if err != nil {
+		//	return err
+		//}
 
-		if ev.Channel != admin.SlackChannelID {
-			return s.respond(ev.Channel, ":warning: `stat` command requires admin privileges.")
-		}
+		//if ev.Channel != admin.SlackChannelID {
+		//	return s.respond(ev.Channel, ":warning: `stat` command requires admin privileges.")
+		//}
 
 		fileInfo, err := ioutil.ReadDir("users")
 		if err != nil {
