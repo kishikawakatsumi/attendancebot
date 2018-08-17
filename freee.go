@@ -85,8 +85,7 @@ func httpClient(user *User) (*http.Client, error) {
 }
 
 func PunchIn(userID string) error {
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	now := time.Now().In(location)
+	now := now()
 	return PunchInAt(userID, now)
 }
 
@@ -101,8 +100,7 @@ func PunchInAt(userID string, inTime time.Time) error {
 		return err
 	}
 
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	clockIn := inTime.In(location)
+	clockIn := inTime.In(JST())
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockIn.Format("2006-01-02"))
 
 	parameters := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `","is_absence":false}`
@@ -118,8 +116,7 @@ func PunchInAt(userID string, inTime time.Time) error {
 }
 
 func PunchOut(userID string) error {
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	now := time.Now().In(location)
+	now := now()
 	return PunchOutAt(userID, now)
 }
 
@@ -134,8 +131,7 @@ func PunchOutAt(userID string, outTime time.Time) error {
 		return err
 	}
 
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	clockOut := outTime.In(location)
+	clockOut := outTime.In(JST())
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockOut.Format("2006-01-02"))
 
 	record, err := DoGet(client, endpoint)
@@ -178,28 +174,13 @@ func PunchLeave(userID string) error {
 		return err
 	}
 
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	now := time.Now().In(location)
+	now := now()
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
-	jsonStr := `{"is_absence":true}`
-	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+	parameters := `{"is_absence":true}`
+	_, err = DoPut(client, endpoint, parameters)
 	if err != nil {
 		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
 	user.LastUsed = time.Now()
@@ -220,10 +201,7 @@ func Report(userID string) ([]map[string]interface{}, error) {
 	}
 
 	records := []map[string]interface{}{}
-
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	now := time.Now().In(location)
-
+	now := now()
 	start, err := time.Parse("2006-1-2", fmt.Sprintf("%d-%d-1", now.Year(), now.Month()))
 	if err != nil {
 		return nil, err
@@ -284,8 +262,6 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 		var inTime time.Time
 		var outTime time.Time
 		if !off {
-			tokyoTime := time.FixedZone("Asia/Tokyo", 9*60*60)
-
 			inTime, err = time.Parse(time.RFC3339, in)
 			if err != nil {
 				inTime, err = time.Parse("15:04", in)
@@ -295,7 +271,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i+1))
 					}
 				}
-				inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, tokyoTime)
+				inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, JST())
 			}
 
 			outTime, err = time.Parse(time.RFC3339, out)
@@ -307,7 +283,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i))
 					}
 				}
-				outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, tokyoTime)
+				outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, JST())
 			}
 		}
 
@@ -355,8 +331,7 @@ func IsNormalDay(userID string) bool {
 		return false
 	}
 
-	location := time.FixedZone("Asia/Tokyo", 9*60*60)
-	now := time.Now().In(location)
+	now := now()
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
 	record, err := DoGet(client, endpoint)
@@ -405,4 +380,12 @@ func DoPut(client *http.Client, endpoint string, parameters string) (*http.Respo
 	}
 
 	return response, nil
+}
+
+func now() time.Time {
+	return time.Now().In(JST())
+}
+
+func JST() *time.Location {
+	return time.FixedZone("Asia/Tokyo", 9*60*60)
 }
