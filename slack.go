@@ -166,7 +166,7 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		}
 
 		if split[0] == "in" {
-			responseText := ":ok: You have punched in at " + clock.Format("2006/01/02 15:04") + "."
+			responseText := fmt.Sprintf(":ok: You have punched in at *%s*.", clock.Format("2006/01/02 15:04"))
 			err := PunchInAt(ev.Msg.User, clock)
 			if err != nil {
 				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
@@ -174,7 +174,7 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			}
 			return s.respond(ev.Channel, responseText)
 		} else {
-			responseText := ":ok: You have punched out at " + clock.Format("2006/01/02 15:04") + "."
+			responseText := fmt.Sprintf(":ok: You have punched out at *%s*.", clock.Format("2006/01/02 15:04"))
 			err := PunchOutAt(ev.Msg.User, clock)
 			if err != nil {
 				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)

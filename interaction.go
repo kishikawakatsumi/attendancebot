@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type interactionHandler struct {
@@ -51,7 +52,7 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	action := message.Actions[0]
 	switch action.Name {
 	case actionIn:
-		title := ":ok: You have punched in for today."
+		title := fmt.Sprintf(":ok: You have punched in at *%s*.", time.Now().Format("2006/01/02 15:04"))
 		err := PunchIn(message.User.ID)
 		if err != nil {
 			title = fmt.Sprintf(":warning: Error occurred: %s", err)
@@ -60,7 +61,7 @@ func (h interactionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responseMessage(w, message.OriginalMessage, title, "")
 		return
 	case actionOut:
-		title := ":ok: You have punched out for today."
+		title := fmt.Sprintf(":ok: You have punched out at *%s*.", time.Now().Format("2006/01/02 15:04"))
 		err := PunchOut(message.User.ID)
 		if err != nil {
 			title = fmt.Sprintf(":warning: Error occurred: %s", err)
