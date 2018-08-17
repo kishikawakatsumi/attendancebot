@@ -124,6 +124,9 @@ func PunchInAt(userID string, inTime time.Time) error {
 		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
+	user.LastUsed = time.Now()
+	user.Save()
+
 	return nil
 }
 
@@ -193,6 +196,9 @@ func PunchOutAt(userID string, outTime time.Time) error {
 		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
 
+	user.LastUsed = time.Now()
+	user.Save()
+
 	return nil
 }
 
@@ -230,6 +236,9 @@ func PunchLeave(userID string) error {
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
 	}
+
+	user.LastUsed = time.Now()
+	user.Save()
 
 	return nil
 }
