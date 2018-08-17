@@ -300,10 +300,24 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 	}
 
 	for i, record := range records {
-		date := record["date"].(string)
-		in := record["in"].(string)
-		out := record["out"].(string)
-		off := record["off"].(bool)
+		var date string
+		if record["date"] != nil {
+			date = record["date"].(string)
+		} else {
+			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+		}
+		in := ""
+		if record["in"] != nil {
+			in = record["in"].(string)
+		}
+		out := ""
+		if record["out"] != nil {
+			out = record["out"].(string)
+		}
+		off := false
+		if record["off"] != nil {
+			off = record["off"].(bool)
+		}
 
 		var dateTime time.Time
 		dateTime, err = time.Parse("2006-01-02", date)
@@ -311,32 +325,34 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
 		}
 
-		tokyoTime := time.FixedZone("Asia/Tokyo", 9*60*60)
-
 		var inTime time.Time
-		inTime, err = time.Parse(time.RFC3339, in)
-		if err != nil {
-			inTime, err = time.Parse("15:04", in)
-			if err != nil {
-				inTime, err = time.Parse("1504", in)
-				if err != nil {
-					return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
-				}
-			}
-			inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, tokyoTime)
-		}
-
 		var outTime time.Time
-		outTime, err = time.Parse(time.RFC3339, out)
-		if err != nil {
-			outTime, err = time.Parse("15:04", out)
+		if !off {
+			tokyoTime := time.FixedZone("Asia/Tokyo", 9*60*60)
+
+			inTime, err = time.Parse(time.RFC3339, in)
 			if err != nil {
-				outTime, err = time.Parse("1504", out)
+				inTime, err = time.Parse("15:04", in)
 				if err != nil {
-					return fmt.Errorf("an error occurred while processing the %s record.", humanize.Ordinal(i))
+					inTime, err = time.Parse("1504", in)
+					if err != nil {
+						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+					}
 				}
+				inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, tokyoTime)
 			}
-			outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, tokyoTime)
+
+			outTime, err = time.Parse(time.RFC3339, out)
+			if err != nil {
+				outTime, err = time.Parse("15:04", out)
+				if err != nil {
+					outTime, err = time.Parse("1504", out)
+					if err != nil {
+						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i))
+					}
+				}
+				outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, tokyoTime)
+			}
 		}
 
 		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, dateTime.Format("2006-01-02"))
