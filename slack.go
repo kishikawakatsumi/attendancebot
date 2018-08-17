@@ -519,6 +519,9 @@ func (s *SlackListener) sendReminderMessage() error {
 				if (now.Hour() != reminder.AM.Hour() || now.Minute() != reminder.AM.Minute()) && (now.Hour() != reminder.PM.Hour() || now.Minute() != reminder.PM.Minute()) {
 					continue
 				}
+				if !IsNormalDay(userID) {
+					continue
+				}
 				if _, _, err := s.client.PostMessage(user.SlackChannelID, "", checkInOptions()); err != nil {
 					return fmt.Errorf("failed to post message: %s", err)
 				}
