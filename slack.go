@@ -293,7 +293,7 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 				}
 			}
 
-			s.respond(ev.Channel, "Creating timesheet report ...")
+			s.respond(ev.Channel, ":hourglass: Creating timesheet report ...")
 
 			records, err := Report(ev.Msg.User)
 			if err != nil {
@@ -348,8 +348,29 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 					}
 					results = append(results, fmt.Sprintf("%s  %s  %s  %s", date.Format("2006/01/02"), in, out, off))
 				}
+
 				s.respond(ev.Channel, fmt.Sprintf("```\n%s\n```", strings.Join(results, "\n")))
 			}
+		}()
+		return nil
+	}
+	if isDirectMessageChannel && strings.HasPrefix(ev.Msg.Text, "update") {
+		go func() {
+			data := strings.Replace(ev.Msg.Text, "update", "", 1)
+			var records []map[string]interface{}
+			if err := json.Unmarshal([]byte(data), &records); err != nil {
+				s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
+				return
+			}
+
+			s.respond(ev.Channel, ":hourglass: Start bulk update ...")
+			err := BulkUpdate(ev.User, records)
+			if err != nil {
+				s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
+				return
+			}
+
+			s.respond(ev.Channel, ":ok: Bulk update finished successfully.")
 		}()
 		return nil
 	}

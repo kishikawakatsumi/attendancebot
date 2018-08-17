@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"github.com/dustin/go-humanize"
 )
 
 const apiBase = "https://api.freee.co.jp/hr"
@@ -104,7 +105,7 @@ func PunchInAt(userID string, inTime time.Time) error {
 	clockIn := inTime.In(location)
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockIn.Format("2006-01-02"))
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `"}`
+	jsonStr := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `","is_absence":false}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return err
@@ -176,7 +177,7 @@ func PunchOutAt(userID string, outTime time.Time) error {
 		}
 	}
 
-	jsonStr := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `"}`
+	jsonStr := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `","is_absence":false}`
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
 	if err != nil {
 		return err
@@ -285,4 +286,88 @@ func Report(userID string) ([]map[string]interface{}, error) {
 	}
 
 	return records, nil
+}
+
+func BulkUpdate(userID string, records []map[string]interface{}) error {
+	user, err := FindUser(userID)
+	if err != nil {
+		return err
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return err
+	}
+
+	for i, record := range records {
+		date := record["date"].(string)
+		in := record["in"].(string)
+		out := record["out"].(string)
+		off := record["off"].(bool)
+
+		var dateTime time.Time
+		dateTime, err = time.Parse("2006-01-02", date)
+		if err != nil {
+			return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+		}
+
+		tokyoTime := time.FixedZone("Asia/Tokyo", 9*60*60)
+
+		var inTime time.Time
+		inTime, err = time.Parse(time.RFC3339, in)
+		if err != nil {
+			inTime, err = time.Parse("15:04", in)
+			if err != nil {
+				inTime, err = time.Parse("1504", in)
+				if err != nil {
+					return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i + 1))
+				}
+			}
+			inTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), inTime.Hour(), inTime.Minute(), 0, 0, tokyoTime)
+		}
+
+		var outTime time.Time
+		outTime, err = time.Parse(time.RFC3339, out)
+		if err != nil {
+			outTime, err = time.Parse("15:04", out)
+			if err != nil {
+				outTime, err = time.Parse("1504", out)
+				if err != nil {
+					return fmt.Errorf("an error occurred while processing the %s record.", humanize.Ordinal(i))
+				}
+			}
+			outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, tokyoTime)
+		}
+
+		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, dateTime.Format("2006-01-02"))
+		var jsonStr string
+		if off {
+			jsonStr = `{"is_absence":true}`
+		} else {
+			jsonStr = `{"break_records":[],"clock_in_at":"` + inTime.Format(time.RFC3339) + `","clock_out_at":"` + outTime.Format(time.RFC3339) + `","is_absence":false}`
+		}
+		request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(jsonStr)))
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Content-Type", "application/json")
+
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+
+		data, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to request:\n\tstatus code: %d\n\tresponse: %s", response.StatusCode, string(data))
+		}
+	}
+
+	user.LastUsed = time.Now()
+	user.Save()
+
+	return nil
 }
