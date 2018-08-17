@@ -159,12 +159,12 @@ func PunchOutAt(userID string, outTime time.Time) error {
 	if err != nil {
 		return err
 	}
-	var resObj map[string]interface{}
-	if err := json.Unmarshal(data, &resObj); err != nil {
+	var record map[string]interface{}
+	if err := json.Unmarshal(data, &record); err != nil {
 		return err
 	}
 
-	clockInAt := resObj["clock_in_at"]
+	clockInAt := record["clock_in_at"]
 	var inTime string
 	if clockInAt == nil {
 		inTime = clockOut.Add(-1 * time.Minute).Format(time.RFC3339)
@@ -241,4 +241,48 @@ func PunchLeave(userID string) error {
 	user.Save()
 
 	return nil
+}
+
+func Report(userID string) ([]map[string]interface{}, error) {
+	user, err := FindUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return nil, err
+	}
+
+	records := []map[string]interface{}{}
+
+	location := time.FixedZone("Asia/Tokyo", 9*60*60)
+	now := time.Now().In(location)
+
+	start, err := time.Parse("2006-1-2", fmt.Sprintf("%d-%d-1", now.Year(), now.Month()))
+	if err != nil {
+		return nil, err
+	}
+	for d := start; d.Month() == start.Month(); d = d.AddDate(0, 0, 1) {
+		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, d.Format("2006-01-02"))
+		response, err := client.Get(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		data, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		var record map[string]interface{}
+		if err := json.Unmarshal(data, &record); err != nil {
+			return nil, err
+		}
+		if record["day_pattern"] != "normal_day" {
+			continue
+		}
+
+		records = append(records, map[string]interface{}{"date": record["date"], "in": record["clock_in_at"], "out": record["clock_out_at"], "off": record["is_absence"]})
+	}
+
+	return records, nil
 }

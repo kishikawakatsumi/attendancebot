@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"encoding/json"
 	"github.com/nlopes/slack"
 )
 
@@ -254,6 +255,103 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			return err
 		}
 		return s.respond(ev.Channel, responseText)
+	}
+	if isDirectMessageChannel && strings.HasPrefix(ev.Msg.Text, "report") {
+		go func() {
+			fields := strings.Fields(ev.Msg.Text)
+			if len(fields) > 3 {
+				s.respond(ev.Channel, ":warning: Invalid parameters.")
+				return
+			}
+
+			jsonFormat := false
+			onlyIncomplete := false
+			if len(fields) == 2 {
+				if fields[1] == "-json" {
+					jsonFormat = true
+				} else {
+					s.respond(ev.Channel, ":warning: Invalid parameters.")
+					return
+				}
+			}
+			if len(fields) == 3 {
+				if fields[1] == "-json" {
+					jsonFormat = true
+				} else if fields[1] == "-incomplete" {
+					onlyIncomplete = true
+				} else {
+					s.respond(ev.Channel, ":warning: Invalid parameters.")
+					return
+				}
+				if fields[2] == "-json" {
+					jsonFormat = true
+				} else if fields[2] == "-incomplete" {
+					onlyIncomplete = true
+				} else {
+					s.respond(ev.Channel, ":warning: Invalid parameters.")
+					return
+				}
+			}
+
+			s.respond(ev.Channel, "Creating timesheet report ...")
+
+			records, err := Report(ev.Msg.User)
+			if err != nil {
+				s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
+				sugar.Errorf("%s", err)
+				return
+			}
+
+			if jsonFormat {
+				if onlyIncomplete {
+					incompleteRecords := []map[string]interface{}{}
+					for _, record := range records {
+						if record["in"] == nil && record["out"] == nil && !record["off"].(bool) {
+							incompleteRecords = append(incompleteRecords, record)
+						}
+					}
+					records = incompleteRecords
+				}
+
+				byte, err := json.MarshalIndent(records, "", "  ")
+				if err != nil {
+					s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
+					sugar.Errorf("%s", err)
+					return
+				}
+				s.respond(ev.Channel, string(byte))
+			} else {
+				results := []string{}
+				results = append(results, fmt.Sprintf("Date        In     Out    Off"))
+				results = append(results, fmt.Sprintf("----------  -----  -----  ---"))
+				for _, record := range records {
+					date, _ := time.Parse("2006-01-02", record["date"].(string))
+					in := record["in"]
+					if in == nil {
+						in = "     "
+					} else {
+						inTime, _ := time.Parse(time.RFC3339, in.(string))
+						in = inTime.Format("15:04")
+					}
+					out := record["out"]
+					if out == nil {
+						out = "     "
+					} else {
+						outTime, _ := time.Parse(time.RFC3339, out.(string))
+						out = outTime.Format("15:04")
+					}
+					var off string
+					if record["off"].(bool) {
+						off = " * "
+					} else {
+						off = "   "
+					}
+					results = append(results, fmt.Sprintf("%s  %s  %s  %s", date.Format("2006/01/02"), in, out, off))
+				}
+				s.respond(ev.Channel, fmt.Sprintf("```\n%s\n```", strings.Join(results, "\n")))
+			}
+		}()
+		return nil
 	}
 	if isDirectMessageChannel && strings.HasPrefix(ev.Msg.Text, "reminder set") {
 		fields := strings.Fields(ev.Msg.Text)
