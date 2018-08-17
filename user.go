@@ -31,8 +31,6 @@ func FindUser(userID string) (*User, error) {
 
 	am, _ := time.Parse("1504", "0900")
 	pm, _ := time.Parse("1504", "1700")
-	fmt.Print(am)
-	fmt.Print(pm)
 	user := User{
 		Reminder: Reminder{
 			Enabled: true,

@@ -19,7 +19,33 @@ const (
 	actionCancel = "cancel"
 
 	callbackID  = "punch"
-	helpMessage = "```\nUsage:\n\tIntegration:\n\t\tauth\n\t\tadd [emp_id]\n\n\tDeintegration\n\t\tremove\n\n\tCheck In:\n\t\tin\n\t\tin now\n\t\tin 0930\n\n\tCheck Out:\n\t\tout\n\t\tout now\n\t\tout 1810\n\n\tOff:\n\t\tleave\n\t\toff```"
+	helpMessage = "```\n" +
+		`Usage:
+	Integration:
+		auth
+		add [emp_id]
+
+	Deintegration
+		remove
+
+	Check In:
+		in
+		in now
+		in 0930
+
+	Check Out:
+		out
+		out now
+		out 1810
+
+	Off:
+		leave
+		off
+
+	Reminder:
+		reminder set 0900 1700
+		reminder off
+` + "```"
 )
 
 type SlackListener struct {
@@ -35,7 +61,7 @@ func (s *SlackListener) ListenAndResponse() {
 		switch ev := msg.Data.(type) {
 		case *slack.MessageEvent:
 			if err := s.handleMessageEvent(ev); err != nil {
-				s.respond(ev.Channel, fmt.Sprintf("%s", err))
+				s.respond(ev.Channel, fmt.Sprintf(":warning: %s", err))
 				sugar.Errorf("Failed to handle message: %s", err)
 			}
 		}
@@ -53,20 +79,20 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return s.respond(ev.Channel, fmt.Sprintf("Please open the following URL in your browser:\n%s", authURL))
 	}
 	if isDirectMessageChannel && (strings.HasPrefix(ev.Msg.Text, "register") || strings.HasPrefix(ev.Msg.Text, "add")) {
-		split := strings.Fields(ev.Msg.Text)
+		fields := strings.Fields(ev.Msg.Text)
 
 		var employeeID string
 		code := ""
-		if len(split) == 2 {
-			employeeID = split[1]
-		} else if len(split) == 3 {
-			employeeID = split[1]
-			code = split[2]
+		if len(fields) == 2 {
+			employeeID = fields[1]
+		} else if len(fields) == 3 {
+			employeeID = fields[1]
+			code = fields[2]
 			if utf8.RuneCountInString(code) != 64 {
-				return s.respond(ev.Channel, "Invalid authorization code.")
+				return s.respond(ev.Channel, ":warning: Invalid authorization code.")
 			}
 		} else {
-			return s.respond(ev.Channel, "Invalid parameters.")
+			return s.respond(ev.Channel, ":warning: Invalid parameters.")
 		}
 
 		var user User
@@ -110,14 +136,14 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return s.respond(ev.Channel, fmt.Sprintf(":ok: '%s' was removed successfully.", ev.User))
 	}
 	if isDirectMessageChannel && (strings.HasPrefix(ev.Msg.Text, "admin register") || strings.HasPrefix(ev.Msg.Text, "admin add")) {
-		split := strings.Fields(ev.Msg.Text)
-		if len(split) != 3 {
-			return s.respond(ev.Channel, "Invalid parameters.")
+		fields := strings.Fields(ev.Msg.Text)
+		if len(fields) != 3 {
+			return s.respond(ev.Channel, ":warning: Invalid parameters.")
 		}
 
-		code := split[2]
+		code := fields[2]
 		if utf8.RuneCountInString(code) != 64 {
-			return s.respond(ev.Channel, "Invalid authorization code.")
+			return s.respond(ev.Channel, ":warning: Invalid authorization code.")
 		}
 
 		token, err := Token(code)
@@ -186,39 +212,37 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		return nil
 	}
 	if isDirectMessageChannel && (strings.HasPrefix(ev.Msg.Text, "in") || strings.HasPrefix(ev.Msg.Text, "out")) {
-		split := strings.Fields(ev.Msg.Text)
-		if len(split) != 2 {
-			return s.respond(ev.Channel, "Invalid parameters.")
+		fields := strings.Fields(ev.Msg.Text)
+		if len(fields) != 2 {
+			return s.respond(ev.Channel, ":warning: Invalid parameters.")
 		}
 
 		var clock time.Time
-		timeParam := split[1]
+		timeParam := fields[1]
 		if timeParam == "now" {
 			clock = time.Now()
 		} else {
 			t, err := time.Parse("1504", timeParam)
 			if err != nil {
-				return s.respond(ev.Channel, "Invalid parameters.")
+				return err
 			}
 			now := time.Now()
 			tokyoTime := time.FixedZone("Asia/Tokyo", 9*60*60)
 			clock = time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, tokyoTime)
 		}
 
-		if split[0] == "in" {
+		if fields[0] == "in" {
 			responseText := fmt.Sprintf(":ok: You have punched in at *%s*.", clock.Format("2006/01/02 15:04"))
 			err := PunchInAt(ev.Msg.User, clock)
 			if err != nil {
-				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
-				sugar.Errorf("error occurred: %s", err)
+				return err
 			}
 			return s.respond(ev.Channel, responseText)
 		} else {
 			responseText := fmt.Sprintf(":ok: You have punched out at *%s*.", clock.Format("2006/01/02 15:04"))
 			err := PunchOutAt(ev.Msg.User, clock)
 			if err != nil {
-				responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
-				sugar.Errorf("error occurred: %s", err)
+				return err
 			}
 			return s.respond(ev.Channel, responseText)
 		}
@@ -227,8 +251,51 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 		responseText := ":ok: You are off today. Enjoy :tada:"
 		err := PunchLeave(ev.Msg.User)
 		if err != nil {
-			responseText = fmt.Sprintf(":warning: Error occurred: %s", err)
-			sugar.Errorf("error occurred: %s", err)
+			return err
+		}
+		return s.respond(ev.Channel, responseText)
+	}
+	if isDirectMessageChannel && strings.HasPrefix(ev.Msg.Text, "reminder set") {
+		fields := strings.Fields(ev.Msg.Text)
+		if len(fields) != 4 {
+			return s.respond(ev.Channel, ":warning: Invalid parameters.")
+		}
+
+		user, err := FindUser(ev.User)
+		if err != nil {
+			return err
+		}
+
+		am, err := time.Parse("1504", fields[2])
+		if err != nil {
+			return err
+		}
+		pm, err := time.Parse("1504", fields[3])
+		if err != nil {
+			return err
+		}
+
+		user.Reminder.Enabled = true
+		user.Reminder.AM = am
+		user.Reminder.PM = pm
+		err = user.Save()
+		if err != nil {
+			return err
+		}
+
+		return s.respond(ev.Channel, fmt.Sprintf(":ok: The reminders have been set to *%s*/*%s*", am.Format("15:04"), pm.Format("15:04")))
+	}
+	if isDirectMessageChannel && ev.Msg.Text == "reminder off" {
+		responseText := ":ok: The reminders have been turned off."
+		user, err := FindUser(ev.User)
+		if err != nil {
+			return err
+		}
+
+		user.Reminder.Enabled = false
+		err = user.Save()
+		if err != nil {
+			return err
 		}
 		return s.respond(ev.Channel, responseText)
 	}
@@ -294,26 +361,30 @@ func (s *SlackListener) sendReminderMessage() error {
 		case <-ticker.C:
 			location := time.FixedZone("Asia/Tokyo", 9*60*60)
 			now := time.Now().In(location)
-			if (now.Hour() == 9 && now.Minute() == 0) || (now.Hour() == 17 && now.Minute() == 0) {
-				fileInfo, err := ioutil.ReadDir("users")
-				if err != nil {
-					return err
+
+			fileInfo, err := ioutil.ReadDir("users")
+			if err != nil {
+				return err
+			}
+
+			for _, file := range fileInfo {
+				userID := file.Name()
+				if userID == "admin" {
+					continue
 				}
-
-				for _, file := range fileInfo {
-					userID := file.Name()
-					if userID == "admin" {
-						continue
-					}
-					user, err := FindUser(userID)
-					if err != nil {
-						continue
-					}
-					parameters := checkInOptions()
-
-					if _, _, err := s.client.PostMessage(user.SlackChannelID, "", parameters); err != nil {
-						return fmt.Errorf("failed to post message: %s", err)
-					}
+				user, err := FindUser(userID)
+				if err != nil {
+					continue
+				}
+				if !user.Reminder.Enabled {
+					continue
+				}
+				reminder := user.Reminder
+				if (now.Hour() != reminder.AM.Hour() || now.Minute() != reminder.AM.Minute()) && (now.Hour() != reminder.PM.Hour() || now.Minute() != reminder.PM.Minute()) {
+					continue
+				}
+				if _, _, err := s.client.PostMessage(user.SlackChannelID, "", checkInOptions()); err != nil {
+					return fmt.Errorf("failed to post message: %s", err)
 				}
 			}
 		}
