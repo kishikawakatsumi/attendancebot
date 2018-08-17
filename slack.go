@@ -139,6 +139,46 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 
 		return s.respond(ev.Channel, ":ok: Saved the admin access token successfully.")
 	}
+	if isDirectMessageChannel && ev.Msg.Text == "admin stat" {
+		admin, err := FindUser("admin")
+		if err != nil {
+			return err
+		}
+
+		if ev.Channel != admin.SlackChannelID {
+			return s.respond(ev.Channel, ":warning: `stat` command requires admin privileges.")
+		}
+
+		fileInfo, err := ioutil.ReadDir("users")
+		if err != nil {
+			return err
+		}
+
+		stats := []string{}
+		stats = append(stats, "Emoloyee ID  Reminder  Last Used")
+		stats = append(stats, "-----------  --------  ----------------")
+
+		for _, file := range fileInfo {
+			userID := file.Name()
+			if userID == "admin" {
+				continue
+			}
+			user, err := FindUser(userID)
+			if err != nil {
+				continue
+			}
+
+			var reminder string
+			if user.Reminder.Enabled {
+				reminder = "ON"
+			} else {
+				reminder = "OFF"
+			}
+			stats = append(stats, fmt.Sprintf("%-11s  %-8s  %-16s", user.EmployeeID, reminder, user.LastUsed.Format("2006/01/02 15:04")))
+		}
+
+		return s.respond(ev.Channel, fmt.Sprintf("```\n%s\n```", strings.Join(stats, "\n")))
+	}
 	if isDirectMessageChannel && (ev.Msg.Text == "in" || ev.Msg.Text == "out") {
 		if _, _, err := s.client.PostMessage(ev.Channel, "", checkInOptions()); err != nil {
 			return fmt.Errorf("failed to post message: %s", err)
@@ -265,7 +305,7 @@ func (s *SlackListener) sendReminderMessage() error {
 					if userID == "admin" {
 						continue
 					}
-					user, err := findUser(userID)
+					user, err := FindUser(userID)
 					if err != nil {
 						continue
 					}
