@@ -54,9 +54,9 @@ const (
 
 	Bulk Update:
 		update [
-			     {"date":"2018-08-17","in":"09:30","out":"19:20","off":false},
-			     {"date":"2018-08-20","in":"1015","out":"2040","off":false},
-			     {"date":"2018-08-21","in":null,"out":null,"off":true}
+			     {"date":"2018-08-17","in":"09:30","out":"19:20"},
+			     {"date":"2018-08-20","in":"1015","out":"2040"},
+			     {"date":"2018-08-21","off":true}
 			   ]
 ` + "```"
 )
