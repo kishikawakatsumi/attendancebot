@@ -1,0 +1,7 @@
+language: go
+
+script:
+ - go build
+branches:
+  only:
+  - master
