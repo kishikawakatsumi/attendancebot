@@ -19,7 +19,8 @@ const (
 	actionLeave  = "leave"
 	actionCancel = "cancel"
 
-	callbackID  = "punch"
+	callbackID = "punch"
+
 	helpMessage = "```\n" +
 		`Usage:
 	Integration:
@@ -267,6 +268,17 @@ func (s *SlackListener) handleMessageEvent(ev *slack.MessageEvent) error {
 			return err
 		}
 		return s.respond(ev.Channel, responseText)
+	}
+	if isDirectMessageChannel && ev.Msg.Text == "timesheet" {
+		record, err := Timesheet(ev.Msg.User)
+		if err != nil {
+			return err
+		}
+		byte, err := json.Marshal(record)
+		if err != nil {
+			return err
+		}
+		return s.respond(ev.Channel, fmt.Sprintf("```\n%s\n```", string(byte)))
 	}
 	if isDirectMessageChannel && strings.HasPrefix(ev.Msg.Text, "report") {
 		go func() {
