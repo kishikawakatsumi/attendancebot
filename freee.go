@@ -104,7 +104,7 @@ func PunchInAt(userID string, inTime time.Time) error {
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockIn.Format("2006-01-02"))
 
 	parameters := `{"break_records":[],"clock_in_at":"` + clockIn.Format(time.RFC3339) + `","clock_out_at":"` + clockIn.Add(9*time.Hour).Format(time.RFC3339) + `","is_absence":false}`
-	_, err = DoPut(client, endpoint, parameters)
+	_, err = doPut(client, endpoint, parameters)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func PunchOutAt(userID string, outTime time.Time) error {
 	clockOut := outTime.In(JST())
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, clockOut.Format("2006-01-02"))
 
-	record, err := DoGet(client, endpoint)
+	record, err := doGet(client, endpoint)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func PunchOutAt(userID string, outTime time.Time) error {
 	}
 
 	parameters := `{"break_records":[],"clock_in_at":"` + inTime + `","clock_out_at":"` + clockOut.Format(time.RFC3339) + `","is_absence":false}`
-	_, err = DoPut(client, endpoint, parameters)
+	_, err = doPut(client, endpoint, parameters)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func PunchLeave(userID string) error {
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
 	parameters := `{"is_absence":true}`
-	_, err = DoPut(client, endpoint, parameters)
+	_, err = doPut(client, endpoint, parameters)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func Report(userID string) ([]map[string]interface{}, error) {
 	}
 	for d := start; d.Month() == start.Month(); d = d.AddDate(0, 0, 1) {
 		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, d.Format("2006-01-02"))
-		record, err := DoGet(client, endpoint)
+		record, err := doGet(client, endpoint)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +280,7 @@ func BulkUpdate(userID string, records []map[string]interface{}) error {
 				if err != nil {
 					outTime, err = time.Parse("1504", out)
 					if err != nil {
-						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i))
+						return fmt.Errorf("an error occurred while processing the %s record", humanize.Ordinal(i+1))
 					}
 				}
 				outTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), outTime.Hour(), outTime.Minute(), 0, 0, JST())
@@ -334,7 +334,7 @@ func IsNormalDay(userID string) bool {
 	now := now()
 	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-01-02"))
 
-	record, err := DoGet(client, endpoint)
+	record, err := doGet(client, endpoint)
 	if err != nil {
 		return false
 	}
@@ -342,7 +342,7 @@ func IsNormalDay(userID string) bool {
 	return record["day_pattern"] == "normal_day"
 }
 
-func DoGet(client *http.Client, endpoint string) (map[string]interface{}, error) {
+func doGet(client *http.Client, endpoint string) (map[string]interface{}, error) {
 	response, err := client.Get(endpoint)
 	if err != nil {
 		return nil, err
@@ -359,7 +359,7 @@ func DoGet(client *http.Client, endpoint string) (map[string]interface{}, error)
 	return record, nil
 }
 
-func DoPut(client *http.Client, endpoint string, parameters string) (*http.Response, error) {
+func doPut(client *http.Client, endpoint string, parameters string) (*http.Response, error) {
 	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer([]byte(parameters)))
 	if err != nil {
 		return nil, err
