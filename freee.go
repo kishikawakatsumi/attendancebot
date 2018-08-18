@@ -206,7 +206,7 @@ func Report(userID string) ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	for d := start; d.Month() == start.Month(); d = d.AddDate(0, 0, 1) {
+	for d := start; d.Day() <= now.Day(); d = d.AddDate(0, 0, 1) {
 		endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, d.Format("2006-01-02"))
 		record, err := DoGet(client, endpoint)
 		if err != nil {
