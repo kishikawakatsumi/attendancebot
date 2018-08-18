@@ -189,6 +189,27 @@ func PunchLeave(userID string) error {
 	return nil
 }
 
+func Timesheet(userID string) (map[string]interface{}, error) {
+	user, err := FindUser(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := httpClient(user)
+	if err != nil {
+		return nil, err
+	}
+
+	now := now()
+	endpoint := fmt.Sprintf("%s/api/v1/employees/%s/work_records/%s", apiBase, user.EmployeeID, now.Format("2006-1-2"))
+	record, err := doGet(client, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	return record, nil
+}
+
 func Report(userID string) ([]map[string]interface{}, error) {
 	user, err := FindUser(userID)
 	if err != nil {
